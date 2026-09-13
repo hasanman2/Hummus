@@ -688,7 +688,38 @@ function showPrintableSummary() {
   document.body.append(dialog);
   dialog.showModal();
 }
-function render(preserveFocus = false) {
+// Keep the edited input and its ancestors connected to the document. Replacing
+// a number input loses its native caret and partially typed decimal, and number
+// inputs do not support setSelectionRange to restore them afterward.
+function refreshAroundInput(current, next, input, nextInput) {
+  if (current === input) {
+    for (const attribute of [...input.attributes]) {
+      if (attribute.name !== "value" && !nextInput.hasAttribute(attribute.name))
+        input.removeAttribute(attribute.name);
+    }
+    for (const attribute of nextInput.attributes) {
+      if (
+        attribute.name !== "value" &&
+        input.getAttribute(attribute.name) !== attribute.value
+      )
+        input.setAttribute(attribute.name, attribute.value);
+    }
+    return;
+  }
+  const kept = [...current.childNodes].find((node) => node.contains(input));
+  const nextKept = [...next.childNodes].find((node) => node.contains(nextInput));
+  for (const child of [...current.childNodes]) {
+    if (child !== kept) child.remove();
+  }
+  let beforeInput = true;
+  for (const child of [...next.childNodes]) {
+    if (child === nextKept) {
+      refreshAroundInput(kept, nextKept, input, nextInput);
+      beforeInput = false;
+    } else current.insertBefore(child, beforeInput ? kept : null);
+  }
+}
+function render(preserveFocus = false, editingInput = null) {
   const focused = document.activeElement,
     focusPath = preserveFocus ? focused?.dataset?.path : null,
     start = focused?.selectionStart,
@@ -698,10 +729,19 @@ function render(preserveFocus = false) {
     );
   result = calculate(active());
   const r = active();
-  app.innerHTML = `<div class="page-heading"><div><p class="eyebrow">FROM RECIPE TO RETAIL</p><h1>A better batch starts here.</h1><p class="subtext">Know your recipe. Understand your costs.</p></div><div class="actions"><button data-action="csv">Export CSV</button><button data-action="print">Print summary</button></div></div><div class="recipe-bar"><div class="recipe-select"><label for="recipe-picker">Your recipes</label><select id="recipe-picker">${state.recipes.map((i) => `<option value="${esc(i.id)}" ${i.id === r.id ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</select><span class="save-state">${storageAvailable ? "Autosaved in this browser" : "Session only · export a backup"}</span></div><div class="actions"><button class="quiet small" data-action="new">+ Blank recipe</button><button class="quiet small" data-action="duplicate">Duplicate</button><button class="primary small" data-action="save">Save recipe</button></div></div>${storageError ? `<div class="warnings">${esc(storageError)}</div>` : ""}<nav class="tabs" aria-label="Calculator sections">${tabs.map(([key, label], n) => `<button class="tab ${tab === key ? "active" : ""}" data-tab="${key}" ${tab === key ? 'aria-current="page"' : ""}><span>${n + 1}</span>${label}</button>`).join("")}</nav><a class="mobile-summary-link" href="#summary">View live results ↓</a><div class="workspace" id="workspace"><div id="inputs">${{ recipe: recipePanel, ingredients: pricesPanel, production: productionPanel, pricing: pricingPanel, monthly: monthlyPanel }[tab]()}</div>${summary()}</div><footer class="footer"><span>Hummus Workshop · Local-first, no account needed.</span><div class="actions"><button class="quiet small" data-action="export">Export JSON backup</button><button class="quiet small" data-action="import">Import JSON</button><input type="file" id="import-file" accept=".json,application/json" hidden><button class="quiet small" data-action="example">Add example</button></div></footer>${printSummary()}`;
+  const html = `<div class="page-heading"><div><p class="eyebrow">FROM RECIPE TO RETAIL</p><h1>A better batch starts here.</h1><p class="subtext">Know your recipe. Understand your costs.</p></div><div class="actions"><button data-action="csv">Export CSV</button><button data-action="print">Print summary</button></div></div><div class="recipe-bar"><div class="recipe-select"><label for="recipe-picker">Your recipes</label><select id="recipe-picker">${state.recipes.map((i) => `<option value="${esc(i.id)}" ${i.id === r.id ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</select><span class="save-state">${storageAvailable ? "Autosaved in this browser" : "Session only · export a backup"}</span></div><div class="actions"><button class="quiet small" data-action="new">+ Blank recipe</button><button class="quiet small" data-action="duplicate">Duplicate</button><button class="primary small" data-action="save">Save recipe</button></div></div>${storageError ? `<div class="warnings">${esc(storageError)}</div>` : ""}<nav class="tabs" aria-label="Calculator sections">${tabs.map(([key, label], n) => `<button class="tab ${tab === key ? "active" : ""}" data-tab="${key}" ${tab === key ? 'aria-current="page"' : ""}><span>${n + 1}</span>${label}</button>`).join("")}</nav><a class="mobile-summary-link" href="#summary">View live results ↓</a><div class="workspace" id="workspace"><div id="inputs">${{ recipe: recipePanel, ingredients: pricesPanel, production: productionPanel, pricing: pricingPanel, monthly: monthlyPanel }[tab]()}</div>${summary()}</div><footer class="footer"><span>Hummus Workshop · Local-first, no account needed.</span><div class="actions"><button class="quiet small" data-action="export">Export JSON backup</button><button class="quiet small" data-action="import">Import JSON</button><input type="file" id="import-file" accept=".json,application/json" hidden><button class="quiet small" data-action="example">Add example</button></div></footer>${printSummary()}`;
+  if (editingInput === focused && focusPath) {
+    const nextView = document.createElement("div");
+    nextView.innerHTML = html;
+    const nextInput = [...nextView.querySelectorAll("input[data-path]")].find(
+      (el) => el.dataset.path === focusPath,
+    );
+    if (nextInput) refreshAroundInput(app, nextView, editingInput, nextInput);
+    else app.innerHTML = html;
+  } else app.innerHTML = html;
   for (const el of document.querySelectorAll("details[data-detail]"))
     if (open.includes(el.dataset.detail)) el.open = true;
-  if (focusPath) {
+  if (focusPath && document.activeElement !== focused) {
     const el = [...document.querySelectorAll("[data-path]")].find(
       (el) => el.dataset.path === focusPath,
     );
@@ -710,13 +750,13 @@ function render(preserveFocus = false) {
       el.setSelectionRange(start, end);
   }
 }
-function updatePath(path, value) {
+function updatePath(path, value, editingInput = null) {
   const parts = path.split(".");
   let obj = active();
   for (const key of parts.slice(0, -1)) obj = obj[key];
   obj[parts.at(-1)] = value;
   persist();
-  render(true);
+  render(true, editingInput);
 }
 function download(content, type, name) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -751,7 +791,7 @@ function setTarget(value) {
 }
 app.addEventListener("input", (e) => {
   if (e.target.matches("input[data-path]:not([type=checkbox])"))
-    updatePath(e.target.dataset.path, e.target.value);
+    updatePath(e.target.dataset.path, e.target.value, e.target);
 });
 app.addEventListener("change", async (e) => {
   if (e.target.matches("select[data-path],input[type=checkbox][data-path]"))

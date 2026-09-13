@@ -1,5 +1,11 @@
 # Verification — 13 September 2026
 
+## Number-entry regression
+
+Reproduced the reported bug with actual key presses: typing `123` produced `321` because live rendering replaced the focused numeric input after each character. Live edits now retain that input and its ancestors in the document while refreshing the surrounding results and validation.
+
+Verified sequential entry of `123.45`, insertion in the middle (`1234` → `12934`), backspace (`12934` → `1234`), ingredient quantity `0.075`, and chickpea yield `2.35` inside an expanded options panel. Also verified multi-character decimal entry in supplier price, batch labor, wholesale price and monthly rent fields. The input stayed focused, expanded options stayed open, results updated live, and the browser reported no application errors. All 27 existing automated tests and the build checks passed.
+
 ## Automated checks
 
 - `npm.cmd run check`: JavaScript syntax checks and all 27 tests passed.
