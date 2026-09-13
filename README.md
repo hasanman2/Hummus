@@ -56,7 +56,18 @@ Local saves are specific to the browser, device, and exact website origin (schem
 
 ## Deploy when ready
 
-No deployment, hosting registration, domain association or DNS change has been performed. Any HTTPS static host can serve the contents of `dist`; use the directory itself as the web root. No server-side runtime, environment variables or SPA rewrites are required. Choose a stable hostname before entering significant data, or transfer via JSON afterward.
+Vercel deployment configuration is included. Connecting the GitHub repository to a signed-in Vercel account is still required to create the hosted project. No domain association or DNS change has been performed. Any HTTPS static host can serve the contents of `dist`; use the directory itself as the web root. No server-side runtime, environment variables or SPA rewrites are required. Choose a stable hostname before entering significant data, or transfer via JSON afterward.
+
+### Vercel
+
+1. Sign in to Vercel and import `hasanman2/Hummus` from GitHub.
+2. Use the repository root (`./`) and production branch `master`.
+3. The committed `vercel.json` selects the **Other** framework preset, skips dependency installation, runs `npm run check && npm run build`, and publishes `dist`. Node.js 22 is specified in `package.json`. No environment variables are needed.
+4. Deploy, then open the assigned `vercel.app` address. The Git integration deploys subsequent changes pushed to the production branch.
+
+Use JSON export/import to transfer local recipes to the hosted address. Connecting your existing custom domain is a separate step requiring authorization before DNS changes. See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-json) and [GitHub integration](https://vercel.com/docs/git/vercel-for-github).
+
+### Alternative: Cloudflare Pages
 
 One option is Cloudflare Pages Direct Upload:
 
