@@ -1,104 +1,64 @@
 # Hummus Workshop
 
-A working, local-first recipe, production-cost and profitability calculator. No accounts, backend, database, runtime packages, or API keys are required. The interface uses plain JavaScript modules, semantic HTML and CSS; calculation and persistence code are separate from the interface.
+A local-first recipe and business calculator, built with the existing plain JavaScript modules, HTML and CSS. No backend, accounts, runtime dependencies, API keys or saved business data are shipped with the app.
 
-## Run locally
+Live application: https://hummus-mauve.vercel.app/
+Repository: https://github.com/hasanman2/Hummus
 
-Use Node.js 22 or later. From this folder:
+## Run and verify
 
-```powershell
-npm.cmd start
-```
+Use Node.js 22 or later. Run `npm start` and open http://localhost:4173. Keep using the same hostname: localhost, 127.0.0.1 and the hosted site have separate browser storage. No installation is needed.
 
-Open http://localhost:4173 in a browser. On macOS/Linux use `npm start`. No installation step is needed. Keep the terminal running; stop with Ctrl+C. Use an HTTP server instead of double-clicking index.html because the app uses JavaScript modules. Keep using the same hostname, since `localhost` and `127.0.0.1` have separate browser storage.
+- `npm run check`: syntax/asset checks and 56 financial, recipe and persistence tests.
+- `npm run build`: validate the authored static application in `dist`; there is no bundling step.
 
-```powershell
-npm.cmd run check
-npm.cmd run build
-```
+## Eight sections
 
-`check` performs JavaScript syntax checks and 27 focused Node tests. `build` validates the authored static files and their entrypoint references; there is no compilation or bundling step. The complete deployable application is the `dist` directory. No secrets or saved recipes are included in those files.
+1. **Overview**: monthly profit and cash, three founder-pay views, full cost/revenue allocations per packed and paid tub/kg and per batch.
+2. **Recipe and batch yield**: existing recipe quantities and supplier conversions, measured or estimated loss, prepared yields, density, discarded process aids, ingredient VAT, aggregate or detailed costing.
+3. **Packaging and production**: explicit 250/200/500/custom packages, aggregate or itemized packaging, overfill, kg/tub/batch driving volume, unsold stock and reconciled kg/tub mixes.
+4. **Pricing and sales**: shelf-backwards or direct wholesale pricing, retailer margin and cap, separate direct consumer share, explicit fee bases and gross-to-realized revenue bridge.
+5. **Our team and workload**: three founders, actual and target compensation, salary plus employer costs, owner drawings, optional hired staff, task allocations and required hours.
+6. **Monthly expenses**: editable fixed/variable/capacity-step expenses, utility consumption drivers, categories and classifications, shared-kitchen and contract replacements.
+7. **Equipment and startup funding**: aggregate/itemized purchases, assets/leases, depreciation, startup uses, payment terms, calculated or simple reserve, debt/equity, interest, principal, tax and cash movements.
+8. **Break-even and scenarios**: cash/accounting break-even for every pay view, profit and margin targets, retailer plans, bottlenecks, profit chart and saved scenario/package comparisons.
 
-## Use the calculator
+Custom ingredient, packaging item, expense, fee, founder, staff, task, equipment and capacity rows can be added, duplicated, disabled or deleted. Changes recalculate immediately. Numeric editing retains the active DOM input so decimal entry and the caret are not disrupted.
 
-1. Start with the clearly marked example or choose **Blank recipe**. Blank recipes include editable starter ingredient names, but no ingredient quantities, densities, prices, yield or expense assumptions. VAT (7%), retailer margin (35%), shelf ceiling (€2.30) and tub size (250 g) remain visible editable initial settings.
-2. Enter the reference recipe and either its measured finished usable yield or an explicit process-loss percentage. Enter the target finished weight in kg. Ingredient input weight is shown separately.
-3. Enter supplier pack sizes, units and prices. A blank price remains unknown; enter zero for an actual free ingredient. Keep costs on a consistent basis, excluding recoverable VAT by default.
-4. Enable **Production** when packaging, labor, unsold stock and per-tub economics are useful. Open **Pricing** to use either the consumer ceiling or an actual wholesale quote as the active revenue driver.
-5. Enable **Monthly business** independently. Choose one volume driver and enter the business expenses. Select labor and production overhead allocation in Production; the corresponding monthly or batch fields are disabled to prevent double counting.
+## Starting assumptions
 
-Edits autosave. **Save recipe** also explicitly saves the current scenario. All settings belong to their recipe, and duplication creates an independent scenario. Example-derived recipes retain their example label; begin from Blank recipe for a formulation based entirely on your own measurements.
+New scenarios use the workshop aggregate ingredient fallback of EUR 2.2558 per finished kg. Workshop recipe quantities, actual batch output, founder hours, target compensation and equipment capacities were not supplied and remain unknown. Existing recipe inputs are retained.
+
+The original 250 g package uses the older EUR 0.24 packaging assumption. The explicit 200 g alternative uses EUR 0.35 (scope needs confirmation), and 500 g uses EUR 0.33. New scenarios use a EUR 2.30 shelf cap, 7% VAT assumption and 30% retailer gross margin. Migrated recipes retain their prior margin and price settings, including 35% where saved.
+
+The workshop operating reference is EUR 4,460 fixed plus EUR 0.64 per packed kg, or EUR 6,380 at 3,000 kg. Startup funding totals EUR 149,425 with the supplied aggregate budget and simple reserve. Actual founder pay starts at zero. The EUR 10,843.75 payroll is used only in the historical staff preset.
 
 ## Calculation conventions
 
-- Input mass is calculated in kg. Volumes require an explicit kg/L density when mass is needed; converting ml to L alone does not require a density.
-- Measured scaling factor = target finished kg / measured finished reference kg. Saved process loss is inactive in this mode.
-- Loss-mode reference yield = input kg × (1 − loss fraction). Saved measured yield is inactive in this mode. No implicit 3% loss exists.
-- Chickpeas entered dry are cooked before blending. Their input mass expands by the entered cooked/drained-to-dry factor. Cooked quantities purchased dry are divided by that factor for purchasing. Absorbed cooking water is already in cooked mass; the water ingredient is additional blending water. Different recipe/purchase forms use a separate purchase density when the purchase is volumetric.
-- Full tubs are rounded down. Leftovers receive no revenue, keep their ingredient/production costs, and receive no packaging allocation. Carton expense is entered as a cost allocation per packed tub.
-- Unsold/credited stock reduces paid tubs once, independently of process loss. All incurred production and packaging costs remain. Expected paid quantities may be fractional.
-- Wholesale = consumer price including VAT / (1 + VAT rate) × (1 − retailer sales margin). Actual-wholesale mode overrides revenue, while the ceiling remains the comparison point. VAT applicability must be confirmed for the actual transaction and jurisdiction.
-- Per-tub production results include ingredients, packaging and the selected batch labor/overhead. When labor or overhead is allocated monthly, these per-tub results exclude the deferred costs, which are included in the monthly operating statement. Contribution is not net profit.
-- Monthly packed-tub mode uses proportional batch equivalents at the current packing efficiency. Whole-batch mode is an alternative. Batch expense inputs apply to the target batch you enter; changing batch size does not automatically change labor hours or overhead.
-- Cash operating surplus = revenue − batch production expenses − other variable costs − fixed cash expenses. Operating profit also deducts depreciation, and is before interest and tax.
-- Break-even is rounded up in packed tubs, with an additional whole-batch estimate. Non-positive unit contribution has no finite break-even, including when fixed costs are zero. Estimates depend on entered staffing and capacity; they do not imply unlimited production at unchanged fixed costs.
-- Internal results use JavaScript full-precision numbers; only display formatting rounds them. Unknown or invalid inputs propagate to affected results instead of becoming zero. A zero total ingredient cost makes cost-share percentages undefined.
+- Blank means unknown; 0 is an explicit zero; disabled rows are excluded. Unknown values propagate to affected results. Financial, production, workload and startup completeness are reported separately.
+- Mass/volume conversion requires density. Measured finished yield already includes process loss. Generic prepared yield means prepared kg per purchased kg; chickpea dry/cooked conversion remains available.
+- Aggregate ingredients replace detailed recipe costs. Aggregate packaging replaces itemized packaging. Contract inclusions replace the corresponding ingredient/packaging category. Replaced expense rows are excluded, not duplicated.
+- Monthly quantities are proportional planning estimates and can be fractional. Batch count is also shown rounded up for scheduling; surplus from a rounded-up batch is not silently added to costs. Actual fill includes overfill; paid fraction is applied after packing. All packed output incurs ingredient and packaging costs.
+- Wholesale = shelf including VAT / (1 + VAT) × (1 − retailer margin). Margin is on sales, not markup. Each package has its own shelf/wholesale settings. The common retail cap is a comparison, not a guarantee of the retailer's price.
+- Fees apply independently to gross revenue of the selected channel, or per paid channel tub. They are modeled as reductions in taxable consideration. Separately invoiced channel services belong in expenses. Returns are already included in the unsold/credited allowance.
+- Purchase prices are entered before VAT. Nonrecoverable purchase VAT increases cost; recoverable VAT does not. Sales VAT is shown separately from profit. Working capital uses net-of-recoverable-VAT values and does not model VAT settlement timing.
+- Contribution deducts variable costs, including current capacity-step charges. Manufacturing cost includes manufacturing costs of all packed output, manufacturing payroll/allocated founder pay, and depreciation. Full cost adds administration, sales and distribution. Shared fixed-cost allocations are averages, not marginal costs.
+- Actual founder compensation can be a total cost, gross salary plus employer costs, or drawings. Drawings affect cash only. Target pay replaces actual founder expense; unpaid work value is informational. Hired staff costs do not silently increase founder capacity; adjust task ownership and measured capacity explicitly.
+- Purchased equipment depreciates over its useful life, net of residual value. Aggregate and itemized purchase budgets are exclusive; selected lease commitments remain operating expenses. Asset depreciation covers equipment; add capitalized fit-out as an asset and remove the duplicate startup amount if needed. The historical EUR 708.333333 monthly depreciation override is explicitly labeled for reconciliation.
+- Opening inventory is a startup funding use; its consumption is already included in monthly costs. Calculated reserve = max(0, receivables + inventory − supplier credit − opening stock already budgeted), replacing the simple reserve.
+- EBIT excludes financing. Profit before tax deducts interest. Illustrative tax never creates a benefit on losses. Cash remaining deducts tax, interest, principal, monthly investment, working-capital increases and drawings. Startup loan/equity amounts are funding sources, not monthly revenue.
+- Linear break-even uses paid fraction × realized price minus variable cost per packed tub. Capacity-step break-even solves each affine interval against the actual cost function, within the editable search maximum. The solver bounds the number of intervals to keep editing responsive. Required volumes above known capacity are labeled unattainable; missing capacity measurements remain unknown.
+- Profit and margin targets must both be met, so required EBIT is the larger of target profit and target margin × revenue. Retailer plans use wholesale paid tubs and 52/12 weeks per month.
+- Only display values are rounded. The reconciliation EBIT is EUR 2,335.855452..., displayed as EUR 2,335.86. With historical payroll it is EUR -8,507.894548..., displayed as EUR -8,507.89. These differ by less than one cent from the prompt's approximate figures.
 
-## Saving, transfer and export
+## Saving, migration and exports
 
-Local saves are specific to the browser, device, and exact website origin (scheme, hostname and port). Clearing site data or using a private window may remove them. Moving from a local URL to a hosted URL or custom domain does not transfer browser storage: export JSON first and import it at the new address.
+The version-2 workspace saves to `hummus-workshop-v2`. On first use, a version-1 workspace is validated and migrated, preserving IDs, names, recipe quantities, purchase inputs, pricing and active cost selections. The original `hummus-workshop-v1` browser entry remains untouched. Inactive old monthly salary/utility values are not activated over batch costs; legacy fields remain in each migrated scenario for recovery.
 
-**Export JSON backup** includes every recipe and its settings. **Import JSON** validates the schema and adds independent recipes without overwriting existing ones. The app accepts up to 100 recipes, 100 ingredients per recipe and 2 MB per imported file. Incomplete names and empty numeric inputs survive saving. Invalid files are rejected without changing existing recipes. If stored data cannot be read, the app leaves the original storage untouched and runs in session-only mode.
+Named presets create new scenarios. Duplicate makes an independent copy. Reset business assumptions first saves an archival copy and retains recipe quantities. JSON import validates the schema and appends independent copies, preserving existing scenarios. Both v1 and v2 backups are accepted, with limits of 100 scenarios, 100 rows per collection and 20 MB per imported file. Unknown schema versions or malformed input are rejected.
 
-**Export CSV** exports the active recipe's reference/target quantities, input percentages, purchase requirements, unit prices, ingredient costs/shares, and selected production/pricing/monthly results. Missing values are empty and validation messages are included. Potential spreadsheet-formula text is escaped. Exports provide both a download and selectable text, supporting embedded browsers that restrict downloads.
+JSON is the complete backup format. CSV includes all saved input paths and business output paths; unknown values are labeled INCOMPLETE and formula-like text is escaped. Both exports provide a download link and copyable text. Print summary opens a readable review, then Print / Save PDF opens the browser's print dialog. Data remains local; optional Google Fonts requests provide typography only.
 
-**Print summary** opens a reviewable summary of the active recipe, conversion assumptions, production/pricing and enabled monthly results. **Print / Save PDF** then opens the browser print dialog. Choose Save as PDF for a PDF copy. Browser print headers/footers can be disabled in that dialog. No saved recipes are sent to a server. Google Fonts is an optional typography request; system fonts are used if unavailable.
+## Deployment
 
-## Deploy when ready
-
-Vercel deployment configuration is included. Connecting the GitHub repository to a signed-in Vercel account is still required to create the hosted project. No domain association or DNS change has been performed. Any HTTPS static host can serve the contents of `dist`; use the directory itself as the web root. No server-side runtime, environment variables or SPA rewrites are required. Choose a stable hostname before entering significant data, or transfer via JSON afterward.
-
-### Vercel
-
-1. Sign in to Vercel and import `hasanman2/Hummus` from GitHub.
-2. Use the repository root (`./`) and production branch `master`.
-3. The committed `vercel.json` selects the **Other** framework preset, skips dependency installation, runs `npm run check && npm run build`, and publishes `dist`. Node.js 22 is specified in `package.json`. No environment variables are needed.
-4. Deploy, then open the assigned `vercel.app` address. The Git integration deploys subsequent changes pushed to the production branch.
-
-Use JSON export/import to transfer local recipes to the hosted address. Connecting your existing custom domain is a separate step requiring authorization before DNS changes. See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-json) and [GitHub integration](https://vercel.com/docs/git/vercel-for-github).
-
-### Alternative: Cloudflare Pages
-
-One option is Cloudflare Pages Direct Upload:
-
-1. Run the checks above.
-2. Create a Pages Direct Upload project in your Cloudflare account.
-3. Upload the `dist` folder, deploy, and test the assigned `pages.dev` URL.
-4. For later releases, upload the updated `dist` folder to the same project.
-
-Direct Upload can use the dashboard or Wrangler. It cannot later switch to Git integration within the same project; choose Git integration initially if automatic deployments from a repository are desired. See [Cloudflare's Direct Upload documentation](https://developers.cloudflare.com/pages/get-started/direct-upload/).
-
-## Connect the existing domain
-
-The information needed is:
-
-- Your domain name and preferred address: apex (`example.com`), `www`, or a subdomain such as `hummus.example.com`.
-- The registrar and current DNS provider, plus which account hosts the app.
-- The assigned deployment hostname and any existing website/email services that must continue working.
-- Authorization for the exact DNS or nameserver changes after the proposed records are reviewed. Credentials should be entered through the provider's sign-in UI, not pasted into a recipe or source file.
-
-For Cloudflare Pages, associate the chosen domain in the project's **Custom domains** settings first. An externally managed subdomain can then use a CNAME to the assigned `pages.dev` hostname. An apex domain requires a Cloudflare zone and nameservers; review existing records before considering that change. Confirm DNS and HTTPS activation, then import your JSON backup at the new address. See [Cloudflare's custom-domain instructions](https://developers.cloudflare.com/pages/configuration/custom-domains/). No DNS changes should be made until you authorize the specific change.
-
-## Project layout
-
-- `dist/calculations.js`: unit conversion, yield, ingredient purchasing, packing, pricing and monthly economics.
-- `dist/storage.js`: starter/blank recipes, schema validation, local persistence, duplication and CSV generation.
-- `dist/app.js`: editable views, result summaries, exports and optional feature-detected WebMCP tools.
-- `dist/styles.css`: responsive theme and print layout.
-- `tests/calculations.test.mjs`: 27 focused calculation and persistence tests.
-- `scripts/serve.mjs`: loopback-only local static server; not a production server.
-- `scripts/check.mjs`: deployable static-file verification.
-
-## Limits
-
-This version has no cross-device sync, multi-user collaboration, inventory carry-forward or financial ledger. It plans one active recipe at a time, rather than a mixed monthly product portfolio. Leftover reuse is not modeled. Labor and overhead can be counted at batch or monthly level but not split across both in this version. Free-form expense descriptions still require human review for duplicate entries. Capacity step changes, capital expenditure, financing, tax payments and working-capital timing are outside the operating model.
+The existing GitHub-to-Vercel workflow uses production branch `master`. `vercel.json` selects the Other framework preset, skips dependency installation, runs `npm run check && npm run build`, and publishes `dist`. No environment variables, server runtime, rewrites or DNS changes are needed for this update. Subsequent authorized pushes use the same workflow.

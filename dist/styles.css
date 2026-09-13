@@ -722,10 +722,9 @@ input:disabled {
   }
   .ingredient-head,
   .ingredient-row {
-    grid-template-columns: minmax(110px, 1.2fr) minmax(
-        100px,
-        1fr
-      ) 70px 60px 25px;
+    grid-template-columns:
+      minmax(110px, 1.2fr) minmax(100px, 1fr)
+      70px 60px 25px;
     gap: 6px;
   }
   .field-grid.three {
@@ -966,25 +965,185 @@ input:disabled {
   background: var(--white);
   color: #292e27;
 }
-.export-dialog::backdrop { background: #222b1db3; }
+.export-dialog::backdrop {
+  background: #222b1db3;
+}
 .export-dialog textarea {
   width: 100%;
   padding: 12px;
-  font: 13px/1.5 ui-monospace, monospace;
+  font:
+    13px/1.5 ui-monospace,
+    monospace;
   color: #292e27;
   background: #f7f5ee;
   border: 1px solid var(--line);
   border-radius: 5px;
   resize: vertical;
 }
-.export-dialog textarea:focus-visible { outline: 3px solid var(--gold); }
-.export-dialog .file-button { display: inline-block; white-space: normal; overflow-wrap: anywhere; }
-.print-preview-dialog { width: min(950px, calc(100vw - 32px)); }
-.print-preview-actions { margin-bottom: 25px; }
-.print-preview-content h2 { margin: 24px 0 12px; }
-.print-preview-content p { margin: 10px 0; }
-.print-preview-content .result-table { min-width: 0; }
-@media(max-width:600px) {
-  .print-preview-content .result-table { font-size: 12px; }
-  .print-preview-content .result-table td, .print-preview-content .result-table th { padding: 6px 3px; overflow-wrap: anywhere; }
+.export-dialog textarea:focus-visible {
+  outline: 3px solid var(--gold);
+}
+.export-dialog .file-button {
+  display: inline-block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.print-preview-dialog {
+  width: min(950px, calc(100vw - 32px));
+}
+.print-preview-actions {
+  margin-bottom: 25px;
+}
+.print-preview-content h2 {
+  margin: 24px 0 12px;
+}
+.print-preview-content p {
+  margin: 10px 0;
+}
+/* Business planning keeps the original palette and input behavior. */
+.tabs {
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.tabs .tab {
+  flex: 1 1 21%;
+  justify-content: flex-start;
+  text-align: left;
+}
+.business-detail {
+  border-top: 1px solid var(--line, #e2e3d8);
+  padding: 16px 0;
+}
+.business-detail > summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.business-detail > summary .tag {
+  margin-left: 8px;
+  font-size: 9px;
+}
+.business-detail[open] > summary {
+  margin-bottom: 12px;
+}
+.business-detail .business-detail {
+  margin-left: 10px;
+}
+.row-actions {
+  margin-top: 16px;
+}
+.preset-actions {
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.profit-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 20px;
+}
+.profit-chart text {
+  font:
+    11px system-ui,
+    sans-serif;
+}
+.summary-inner .metrics-grid {
+  grid-template-columns: 1fr;
+}
+.summary-inner .result-table {
+  min-width: 0;
+  font-size: 12px;
+}
+.summary-inner .result-table td {
+  padding: 12px 0;
+  white-space: normal;
+}
+.summary-inner .result-table td:last-child {
+  padding-left: 8px;
+}
+.summary-inner .note {
+  font-size: 12px;
+}
+.summary-inner .warnings {
+  font-size: 12px;
+}
+.summary-inner .metric .value {
+  font-size: 26px;
+}
+.summary-inner .metric {
+  color: var(--olive);
+}
+.summary-inner {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+.field-grid > *,
+#inputs,
+.business-detail {
+  min-width: 0;
+}
+@media (max-width: 800px) {
+  .tabs {
+    overflow: visible;
+  }
+  .tabs .tab {
+    flex: 1 1 42%;
+    white-space: normal;
+    font-size: 11px;
+  }
+  .business-detail > summary {
+    font-size: 14px;
+  }
+  .summary-inner .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .summary-inner {
+    max-height: none;
+    overflow: visible;
+  }
+  .recipe-select {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .recipe-select select {
+    flex: 1 1 100%;
+    max-width: none;
+    width: 100%;
+  }
+  .recipe-select .save-state {
+    flex-basis: 100%;
+  }
+}
+@media print {
+  .print-only .result-table {
+    min-width: 0;
+    font-size: 8pt;
+  }
+  .print-only .result-table td,
+  .print-only .result-table th {
+    padding: 5px;
+    white-space: normal;
+  }
+  .print-only .table-wrap {
+    overflow: visible;
+  }
+  .print-only h2 {
+    margin-top: 20px;
+  }
+  .print-only .warnings {
+    break-inside: avoid;
+  }
+}
+.print-preview-content .result-table {
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .print-preview-content .result-table {
+    font-size: 12px;
+  }
+  .print-preview-content .result-table td,
+  .print-preview-content .result-table th {
+    padding: 6px 3px;
+    overflow-wrap: anywhere;
+  }
 }

@@ -1,4 +1,10 @@
-import { calculate, number } from "./calculations.js";
+import {
+  calculateRecipe as calculate,
+  calculateBusiness,
+  number,
+} from "./business-calculations.js";
+import { businessUI } from "./business-ui.js";
+import { createPreset, createRow, uid } from "./business-data.js";
 import {
   initialState,
   createRecipe,
@@ -8,13 +14,15 @@ import {
   loadState,
   saveState,
   makeCsv,
-} from "./storage.js";
+} from "./business-data.js";
 const app = document.querySelector("#app");
 let state,
   storageAvailable = true,
   storageError = "",
-  tab = "recipe",
-  result;
+  tab = "overview",
+  result,
+  businessResult,
+  business;
 try {
   state = loadState(localStorage);
 } catch {
@@ -24,11 +32,14 @@ try {
     "Stored data could not be read. Existing browser data has been left untouched. Export this session before closing.";
 }
 const tabs = [
-  ["recipe", "Recipe & batch"],
-  ["ingredients", "Ingredient prices"],
-  ["production", "Production"],
-  ["pricing", "Pricing"],
-  ["monthly", "Monthly business"],
+  ["overview", "Overview"],
+  ["recipe", "Recipe & batch yield"],
+  ["production", "Packaging & production"],
+  ["pricing", "Pricing & sales"],
+  ["team", "Our team & workload"],
+  ["expenses", "Monthly expenses"],
+  ["equipment", "Equipment & startup"],
+  ["scenarios", "Break-even & scenarios"],
 ];
 const money = (v) =>
   v === null || v === undefined
@@ -170,7 +181,7 @@ function recipePanel() {
       `<div class="ingredient-head"><span>Ingredient</span><span>Reference quantity</span><span class="cell-number">Target</span><span class="cell-number">Recipe %</span><span></span></div>${r.ingredients
         .map((i, n) => {
           const c = result.rows[n];
-          return `<div class="ingredient-row"><input class="ingredient-name" aria-label="Ingredient ${n + 1} name" data-path="ingredients.${n}.name" value="${esc(i.name)}" maxlength="200"><div class="quantity-group"><input type="number" min="0" step="any" data-path="ingredients.${n}.quantity" aria-label="${esc(i.name)} reference quantity" value="${esc(i.quantity)}" ${number(i.quantity) === null || number(i.quantity) < 0 ? 'aria-invalid="true"' : ""}><select data-path="ingredients.${n}.unit" aria-label="${esc(i.name)} recipe unit">${["g", "kg", "ml", "l"].map((u) => `<option ${i.unit === u ? "selected" : ""}>${u}</option>`).join("")}</select></div><span class="cell-number scaled">${qty(c.targetQuantity, i.unit)}</span><span class="cell-number percentage">${fmt(c.percentage, 1)}${c.percentage === null ? "" : "%"}</span><button class="delete" data-action="remove" data-id="${esc(i.id)}" aria-label="Remove ${esc(i.name)}">×</button><div class="density-row"><details data-detail="ingredient-${i.id}"><summary>${i.chickpea ? `Chickpea conversion · ${i.recipeForm} recipe / ${i.purchaseForm} purchase` : "Density & ingredient options"}</summary><div class="detail-grid">${ingredientField(n, "density", `${esc(i.name)} density`, { unit: "kg/L", min: 0.000001, optional: !["ml", "l"].includes(i.unit), help: "Required for mass ↔ volume. Confirm example densities." })}<div>${check("This is a chickpea ingredient", `ingredients.${n}.chickpea`)}</div>${
+          return `<div class="ingredient-row"><input class="ingredient-name" aria-label="Ingredient ${n + 1} name" data-path="ingredients.${n}.name" value="${esc(i.name)}" maxlength="200"><div class="quantity-group"><input type="number" min="0" step="any" data-path="ingredients.${n}.quantity" aria-label="${esc(i.name)} reference quantity" value="${esc(i.quantity)}" ${number(i.quantity) === null || number(i.quantity) < 0 ? 'aria-invalid="true"' : ""}><select data-path="ingredients.${n}.unit" aria-label="${esc(i.name)} recipe unit">${["g", "kg", "ml", "l"].map((u) => `<option ${i.unit === u ? "selected" : ""}>${u}</option>`).join("")}</select></div><span class="cell-number scaled">${qty(c.targetQuantity, i.unit)}</span><span class="cell-number percentage">${fmt(c.percentage, 1)}${c.percentage === null ? "" : "%"}</span><button class="delete" data-action="remove" data-id="${esc(i.id)}" aria-label="Remove ${esc(i.name)}">×</button><div class="density-row"><details data-detail="ingredient-${esc(i.id)}"><summary>${i.chickpea ? `Chickpea conversion · ${i.recipeForm} recipe / ${i.purchaseForm} purchase` : "Density & ingredient options"}</summary><div class="detail-grid">${ingredientField(n, "density", `${esc(i.name)} density`, { unit: "kg/L", min: 0.000001, optional: !["ml", "l"].includes(i.unit), help: "Required for mass ↔ volume. Confirm example densities." })}<div>${check("This is a chickpea ingredient", `ingredients.${n}.chickpea`)}</div>${
             i.chickpea
               ? select("Recipe chickpea form", `ingredients.${n}.recipeForm`, [
                   ["cooked", "Cooked / drained"],
@@ -270,421 +281,21 @@ function pricesPanel() {
     )
   );
 }
-function productionPanel() {
-  const r = active(),
-    p = r.production,
-    c = result.production;
-  return (
-    panel(
-      "Packaging & production",
-      check("Include packaging and production costs", "production.enabled") +
-        `<p class="subtext">Add this layer when you are ready to cost packed tubs. ${r.example ? "Amounts below are illustrative examples." : "Enter 0 explicitly for costs that do not apply."}</p>`,
-    ) +
-    (!p.enabled
-      ? panel(
-          "Your recipe works on its own",
-          '<p class="subtext">Turn on production to add packaging, labor and expenses, then explore pricing.</p>',
-        )
-      : panel(
-          "Pack the batch",
-          grid(
-            `<label class="field"><span class="field-label">Tub size preset</span><select id="tub-preset" aria-label="Tub size preset">${[200, 250, 500].map((n) => `<option value="${n}" ${Number(p.weightG) === n ? "selected" : ""}>${n} g</option>`).join("")}<option value="custom" ${![200, 250, 500].includes(Number(p.weightG)) ? "selected" : ""}>Custom</option></select></label>` +
-              field("Tub net weight", "production.weightG", {
-                unit: "g",
-                min: 0.000001,
-              }),
-          ) +
-            metrics([
-              ["Full tubs packed", fmt(c.tubs, 0)],
-              ["Unpacked hummus", qty(c.leftoverKg, "kg")],
-            ]) +
-            note(
-              "Only full tubs are packed. Leftovers earn no revenue in this model; their ingredient and production costs stay in the batch. No packaging is charged for leftovers.",
-            ) +
-            '<h3 class="section-gap">Packaging cost per packed tub</h3><p class="subtext">Costs exclude recoverable VAT. Divide a carton price by the number of tubs it holds.</p>' +
-            grid(
-              [
-                ["container", "Container"],
-                ["lid", "Lid"],
-                ["label", "Label"],
-                ["seal", "Seal"],
-                ["carton", "Carton allocation"],
-              ]
-                .map(([k, l]) => field(l, `production.${k}`, { unit: "€" }))
-                .join(""),
-              true,
-            ),
-        ) +
-        panel(
-          "Production expenses",
-          grid(
-            select("Labor is accounted for", "production.laborMode", [
-              ["batch", "Per batch: hours × employer cost"],
-              ["monthly", "Monthly: salaries + founder pay"],
-            ]) +
-              select(
-                "Production overhead is accounted for",
-                "production.overheadMode",
-                [
-                  ["batch", "Per batch: energy, cleaning, other"],
-                  ["monthly", "Monthly: production overhead"],
-                ],
-              ),
-          ) +
-            grid(
-              field("Batch labor hours", "production.laborHours", {
-                unit: "h",
-                disabled: p.laborMode !== "batch",
-              }) +
-                field("Hourly employer cost", "production.hourlyCost", {
-                  unit: "€/h",
-                  disabled: p.laborMode !== "batch",
-                }),
-            ) +
-            grid(
-              ["energy", "cleaning", "other"]
-                .map((k) =>
-                  field(`Batch ${k}`, `production.${k}`, {
-                    unit: "€",
-                    disabled: p.overheadMode !== "batch",
-                  }),
-                )
-                .join(""),
-              true,
-            ) +
-            note(
-              `${p.laborMode === "batch" ? "Batch labor is included. Monthly salaries and founder compensation are excluded." : "Batch labor is excluded. Enter salaries and founder compensation in Monthly business."} ${p.overheadMode === "batch" ? "Batch overhead is included. Monthly production overhead is excluded." : "Batch overhead is excluded. Enter it in Monthly business."} ${!r.monthly.enabled && (p.laborMode === "monthly" || p.overheadMode === "monthly") ? "<strong>Enable Monthly business to include those deferred costs.</strong>" : ""}`,
-            ) +
-            grid(
-              field(
-                "Expected unsold / credited stock",
-                "production.unsoldPct",
-                {
-                  unit: "%",
-                  max: 100,
-                  help: "Applied once to packed tubs. All production costs are retained.",
-                },
-              ),
-            ) +
-            warnings("production") +
-            metrics([
-              ["Ingredients only / batch", money(result.ingredientCost)],
-              ["Packaging materials", money(c.packagingCost)],
-              ["Selected production cost / batch", money(c.total)],
-              ["Expected paid tubs", fmt(c.paidTubs)],
-            ]),
-        ))
-  );
-}
-function coverage() {
-  const c = result.pricing;
-  return !c
-    ? ""
-    : `<div class="status-box ${c.covers === null ? "" : c.covers ? "good" : "bad"}"><strong>${c.covers === null ? "Complete the inputs to check the ceiling." : c.covers ? "The shelf-price ceiling covers selected production costs." : "The shelf-price ceiling does not cover selected production costs."}</strong>${c.contribution !== null && active().pricing.driver === "actual" ? `<br>The actual wholesale price ${c.contribution >= 0 ? "covers" : "does not cover"} those costs.` : ""}</div>`;
-}
-const enableProduction = (title) =>
-  panel(
-    title,
-    '<p class="subtext">Enable production and set a tub weight to calculate prices and business results.</p><button class="primary section-gap" data-action="enable-production">Add production costs</button>',
-  );
-function pricingPanel() {
-  const r = active(),
-    s = r.pricing,
-    c = result.pricing;
-  if (!c) return enableProduction("Pricing & profitability");
-  return (
-    panel(
-      "From shelf price to your revenue",
-      grid(
-        field("Consumer shelf-price ceiling, incl. VAT", "pricing.ceiling", {
-          unit: "€",
-        }) +
-          field("VAT assumption — confirm before use", "pricing.vatPct", {
-            unit: "%",
-            max: 100,
-            help: "7% is an editable modeling assumption; confirm applicability.",
-          }) +
-          field("Retailer gross margin on sales", "pricing.marginPct", {
-            unit: "%",
-            max: 99.999999,
-          }) +
-          select("Active price driver", "pricing.driver", [
-            ["ceiling", "Shelf-price ceiling → maximum wholesale"],
-            ["actual", "Actual wholesale price"],
-          ]) +
-          (s.driver === "actual"
-            ? field(
-                "Actual wholesale price, excl. VAT",
-                "pricing.actualWholesale",
-                {
-                  unit: "€",
-                  help: "Drives producer revenue. The shelf ceiling remains the comparison price.",
-                },
-              )
-            : ""),
-      ) +
-        '<div class="formula">Wholesale = shelf price ÷ (1 + VAT) × (1 − retailer margin)</div>' +
-        note(
-          "Retailer margin is a share of the selling price excluding VAT. It is not a markup on the retailer’s purchase cost. Delivery expenses belong in Monthly business.",
-        ) +
-        warnings("pricing") +
-        metrics([
-          ["Retail price excluding VAT", money(c.retailExVat)],
-          ["Maximum wholesale at ceiling", money(c.maxWholesale)],
-          ["Active revenue / paid tub", money(c.wholesale)],
-          [
-            "Implied margin at shelf ceiling",
-            c.impliedMargin === null ? "—" : `${fmt(c.impliedMargin, 1)}%`,
-          ],
-        ]),
-      "DIRECT TO RETAILER",
-    ) +
-    panel(
-      "Does the price cover your costs?",
-      table([
-        [
-          "Ingredient-only cost per paid tub",
-          money(result.production.ingredientPerPaid),
-        ],
-        [
-          "Selected production cost per paid tub",
-          money(result.production.costPerPaid),
-        ],
-        [
-          "Contribution per paid tub, before monthly costs",
-          money(c.contribution),
-        ],
-        ["Break-even wholesale, excluding VAT", money(c.breakEvenWholesale)],
-        [
-          "Corresponding consumer price, including VAT",
-          money(c.breakEvenConsumer),
-        ],
-      ]) +
-        coverage() +
-        note(
-          "Price break-even covers selected production costs, including expected unsold tubs. The corresponding consumer price uses the entered retailer margin. Contribution is before monthly expenses, depreciation, interest and tax. Use Monthly business to evaluate operating profit.",
-        ),
-    )
-  );
-}
-function monthlyPanel() {
-  const r = active(),
-    m = r.monthly,
-    p = r.production,
-    c = result.monthly;
-  if (!p.enabled) return enableProduction("Monthly business costs");
-  return (
-    panel(
-      "Monthly business",
-      check("Include monthly business expenses", "monthly.enabled") +
-        '<p class="subtext">A separate view of volume, cash operating surplus and operating profit.</p>',
-      "EXCL. RECOVERABLE VAT",
-    ) +
-    (!m.enabled
-      ? ""
-      : panel(
-          "Monthly production",
-          grid(
-            select("Active production driver", "monthly.driver", [
-              ["batches", "Whole batches per month"],
-              ["packed", "Packed tubs per month"],
-            ]) +
-              (m.driver === "batches"
-                ? field("Monthly batch count", "monthly.batches", { step: "1" })
-                : field("Monthly packed production", "monthly.packed", {
-                    unit: "tubs",
-                    step: "1",
-                  })),
-          ) +
-            note(
-              `${m.driver === "packed" ? "Packed volume uses proportional batch equivalents at this recipe’s packing efficiency, including its share of leftovers. This assumes production can be scheduled proportionally; batch-based break-even is also shown." : "Only the entered batch count drives volume. Each batch uses the current target weight and full-tub count."} Paid tubs = packed tubs × (1 − unsold stock). Paid tubs can be fractional as a planning expectation.`,
-            ) +
-            metrics([
-              ["Packed tubs", fmt(c.packed, 0)],
-              ["Expected paid tubs", fmt(c.sold)],
-            ]),
-        ) +
-        panel(
-          "Fixed costs & compensation",
-          grid(
-            field("Rent", "monthly.rent", { unit: "€" }) +
-              field(
-                "Production utilities, cleaning & overhead",
-                "monthly.fixedUtilities",
-                { unit: "€", disabled: p.overheadMode !== "monthly" },
-              ) +
-              field("Salaries, full employer cost", "monthly.salaries", {
-                unit: "€",
-                disabled: p.laborMode !== "monthly",
-              }) +
-              field("Founder compensation", "monthly.founder", {
-                unit: "€",
-                disabled: p.laborMode !== "monthly",
-              }) +
-              [
-                ["insurance", "Insurance"],
-                ["accounting", "Accounting"],
-                ["marketing", "Marketing"],
-                ["delivery", "Fixed monthly delivery"],
-                ["otherFixed", "Other fixed expenses"],
-              ]
-                .map(([k, l]) => field(l, `monthly.${k}`, { unit: "€" }))
-                .join("") +
-              field(
-                "Other variable expense per paid tub",
-                "monthly.variablePaid",
-                {
-                  unit: "€",
-                  help: "For example variable delivery. Do not repeat batch expenses.",
-                },
-              ) +
-              field("Monthly depreciation", "monthly.depreciation", {
-                unit: "€",
-                help: "Non-cash; deducted only from operating profit.",
-              }),
-          ) +
-            note(
-              `<strong>Active allocation:</strong> labor is ${p.laborMode === "batch" ? "charged per batch; salaries and founder pay are disabled" : "charged monthly; batch labor is disabled"}. Production overhead is ${p.overheadMode === "batch" ? "charged per batch; monthly production overhead is disabled" : "charged monthly; batch overhead is disabled"}. Rent and other distinct costs are always monthly. Use one location for each expense; free-form “other” costs cannot be deduplicated automatically.`,
-            ) +
-            warnings("monthly"),
-        ) +
-        panel(
-          "Monthly operating statement",
-          table([
-            ["Revenue", money(c.revenue)],
-            ["Batch production expenses", money(c.batchExpenses)],
-            ["Other variable expenses", money(c.variableExpenses)],
-            ["Fixed cash expenses", money(c.fixed)],
-            ["Total cash operating expenses", money(c.cashExpenses)],
-            [
-              "Cash operating surplus before depreciation",
-              money(c.cashSurplus),
-            ],
-            ["Depreciation", money(c.depreciation)],
-            [
-              "Operating profit before interest and tax",
-              money(c.operatingProfit),
-            ],
-          ]) +
-            metrics([
-              ["Cash break-even · packed tubs", fmt(c.cashBreakEven, 0)],
-              [
-                "Accounting break-even · packed tubs",
-                fmt(c.accountingBreakEven, 0),
-              ],
-            ]) +
-            note(
-              `${c.contributionPerPacked !== null && c.contributionPerPacked <= 0 ? "<strong>No finite break-even volume exists under the current assumptions because contribution is zero or negative.</strong>" : `Rounded up to whole batches: cash ${fmt(c.cashBreakEvenBatches, 0)}, accounting ${fmt(c.accountingBreakEvenBatches, 0)} batches.`} Estimates depend on entered staffing and capacity. Higher volume may require additional people, equipment or space. Cash operating surplus excludes capital expenditure, financing, income tax and working-capital timing.`,
-            ),
-        ))
-  );
-}
-function summary() {
-  const r = active(),
-    c = result,
-    p = c.production,
-    s = c.pricing,
-    m = c.monthly;
-  let title = "Batch summary",
-    big = fmt(c.targetKg),
-    unit = "kg finished",
-    caption =
-      r.yieldMode === "measured"
-        ? "Measured-yield scaling"
-        : "Explicit process-loss scaling",
-    items = [
-      ["Reference input", qty(c.inputKg, "kg")],
-      ["Usable reference yield", qty(c.finishedKg, "kg")],
-      ["Scale factor", `${fmt(c.factor, 3)}${c.factor === null ? "" : "×"}`],
-      ["Target ingredient input", qty(c.targetInputKg, "kg")],
-      ["Ingredients / batch", money(c.ingredientCost)],
-      ["Ingredients / finished kg", money(c.ingredientCostPerKg)],
-    ],
-    foot =
-      "Ingredient costs only. Add packaging and business costs when you need them.";
-  if (tab === "ingredients") {
-    title = "Ingredient costs";
-    big = money(c.ingredientCost);
-    unit = "/ batch";
-    caption = "Target batch · " + qty(c.targetKg, "kg");
-    items = [
-      ["Reference recipe cost", money(c.referenceCost)],
-      ["Per finished kg", money(c.ingredientCostPerKg)],
-      ["Ingredients", r.ingredients.length],
-    ];
-  }
-  if ((tab === "production" || tab === "pricing") && p) {
-    title = tab === "pricing" ? "Price & contribution" : "Production summary";
-    big = tab === "pricing" ? money(s.wholesale) : money(p.costPerPaid);
-    unit = "/ paid tub";
-    caption =
-      tab === "pricing"
-        ? r.pricing.driver === "ceiling"
-          ? "Driven by shelf-price ceiling"
-          : "Driven by actual wholesale price"
-        : "Selected production cost";
-    items = [
-      ["Full tubs packed", fmt(p.tubs, 0)],
-      ["Expected paid tubs", fmt(p.paidTubs)],
-      ["Unpacked hummus", qty(p.leftoverKg, "kg")],
-      ["Ingredients / batch", money(c.ingredientCost)],
-      ["Packaging / batch", money(p.packagingCost)],
-      ["Production / batch", money(p.total)],
-      ["Cost / packed tub", money(p.costPerPacked)],
-    ];
-    if (tab === "pricing")
-      items.push(["Contribution / paid tub", money(s.contribution)]);
-    foot =
-      "Costs of unsold tubs and leftovers are retained. Deferred monthly expenses are excluded here.";
-  }
-  if (tab === "monthly" && m) {
-    title = "Monthly outlook";
-    big = money(m.operatingProfit);
-    unit = "";
-    caption = "Operating profit · before interest & tax";
-    items = [
-      ["Packed tubs", fmt(m.packed, 0)],
-      ["Expected paid tubs", fmt(m.sold)],
-      ["Revenue", money(m.revenue)],
-      ["Cash operating expenses", money(m.cashExpenses)],
-      ["Cash operating surplus", money(m.cashSurplus)],
-      ["Depreciation", money(m.depreciation)],
-    ];
-    foot =
-      "Based on your active volume driver and current staffing / capacity assumptions.";
-  }
-  const relevant = c.issues.filter(
-    (i) =>
-      i.area === tab ||
-      i.area === "recipe" ||
-      (tab !== "recipe" && i.area === "ingredients"),
-  );
-  return `<aside class="summary" id="summary" tabindex="-1"><div class="summary-card"><p class="eyebrow">YOUR NUMBERS, IN VIEW</p><h2>${title}</h2><div class="big-value ${big.length > 12 ? "compact" : ""}">${big}<small>${unit}</small></div><p class="summary-caption">${caption}</p><div class="summary-stats">${items.map(([l, v]) => stat(l, v)).join("")}</div><p class="summary-foot">${foot}</p></div>${tab === "pricing" ? coverage() : ""}${relevant.length ? `<div class="status-box bad"><strong>${relevant.length} input${relevant.length === 1 ? " needs" : "s need"} attention</strong><br>Unavailable results appear as —. Check the relevant input sections.</div>` : ""}<div class="side-note"><h3>${r.example ? "Make this recipe yours" : "Your model, your measurements"}</h3><p>${r.example ? "Recipe quantities, densities, purchasing prices and expenses are illustrative. Replace them with measurements and supplier quotes." : "Use your measured yield and purchasing data. Empty fields remain unknown until you fill them in."}</p></div><div class="side-note"><h3>Saved on this device</h3><p>Recipes and settings stay in this browser. Export JSON to move them to another device or keep a backup.</p></div></aside>`;
-}
 function printSummary() {
-  const r = active(),
-    c = result,
-    p = c.production,
-    s = c.pricing,
-    m = c.monthly;
-  return `<article class="print-only"><h1>${esc(r.name)}</h1><p>${r.example ? "Illustrative example · " : ""}Hummus Workshop · ${new Date().toLocaleDateString("en-GB")} · EUR excluding recoverable VAT</p><div class="print-block"><h2>Recipe & finished yield</h2><p>Method: ${r.yieldMode === "measured" ? "measured finished yield (no additional loss)" : `explicit ${esc(r.lossPct)}% process loss`}. Input ${qty(c.inputKg, "kg")}; reference finished ${qty(c.finishedKg, "kg")}; target ${qty(c.targetKg, "kg")}; scale ${fmt(c.factor, 4)}×.</p><table class="result-table"><thead><tr><th>Ingredient</th><th>Reference</th><th>Target</th><th>Input %</th><th>Purchase</th><th>Cost</th></tr></thead><tbody>${c.rows.map((i) => `<tr><td>${esc(i.name)}</td><td>${qty(i.quantity, i.unit)}</td><td>${qty(i.targetQuantity, i.unit)}</td><td>${fmt(i.percentage, 1)}%</td><td>${qty(i.targetRequirement, i.purchaseUnit)}</td><td>${money(i.targetCost)}</td></tr>`).join("")}</tbody></table><p>Ingredients: ${money(c.ingredientCost)} per batch; ${money(c.ingredientCostPerKg)} per finished kg.</p></div><div class="print-block"><h2>Conversion assumptions</h2>${r.ingredients
-    .filter((i) => i.chickpea || i.density !== "")
-    .map(
-      (i) =>
-        `<p>${esc(i.name)}: ${i.density !== "" ? `recipe density ${esc(i.density)} kg/L; ` : ""}${i.chickpea && i.purchaseDensity !== "" ? `purchase density ${esc(i.purchaseDensity)} kg/L; ` : ""}${i.chickpea ? `${i.recipeForm} recipe, ${i.purchaseForm} purchased; cooked-to-dry yield ${esc(i.cookedYield) || "unknown"}×. Recipe water is additional blending water.` : ""}</p>`,
-    )
-    .join(
-      "",
-    )}</div>${p ? `<div class="print-block"><h2>Production & pricing</h2><p>Tub ${esc(r.production.weightG)} g; ${fmt(p.tubs, 0)} packed; ${fmt(p.paidTubs)} expected paid at ${esc(r.production.unsoldPct)}% unsold. Leftovers ${qty(p.leftoverKg, "kg")} earn no revenue; costs are retained. Packaging is charged only for packed tubs.</p><p>Packaging ${money(p.packagingCost)}; batch labor ${money(p.laborCost)}; batch overhead ${money(p.overheadCost)}; selected production ${money(p.total)}. Labor allocation: ${r.production.laborMode}; overhead allocation: ${r.production.overheadMode}.</p><p>Cost per packed tub ${money(p.costPerPacked)}; per paid tub ${money(p.costPerPaid)}. Shelf ceiling ${money(number(r.pricing.ceiling))}; VAT assumption ${esc(r.pricing.vatPct)}% (confirm); retailer sales margin ${esc(r.pricing.marginPct)}%.</p><p>Driver: ${r.pricing.driver === "actual" ? "actual wholesale" : "shelf ceiling"}. Wholesale ${money(s.wholesale)}; contribution before monthly costs ${money(s.contribution)} per paid tub. Break-even wholesale ${money(s.breakEvenWholesale)}; consumer ${money(s.breakEvenConsumer)}.</p></div>` : ""}${m ? `<div class="print-block"><h2>Monthly business</h2><p>Driver: ${r.monthly.driver}. Packed ${fmt(m.packed, 0)}; paid ${fmt(m.sold)}. Revenue ${money(m.revenue)}; cash operating expenses ${money(m.cashExpenses)}; cash surplus before depreciation ${money(m.cashSurplus)}. Depreciation ${money(m.depreciation)}; operating profit before interest and tax ${money(m.operatingProfit)}.</p><p>Cash break-even: ${fmt(m.cashBreakEven, 0)} packed tubs (${fmt(m.cashBreakEvenBatches, 0)} batches). Accounting break-even: ${fmt(m.accountingBreakEven, 0)} packed tubs (${fmt(m.accountingBreakEvenBatches, 0)} batches). Estimates depend on entered staffing and capacity. No finite break-even exists when contribution is zero or negative.</p></div>` : ""}${c.issues.length ? `<h2>Incomplete inputs & warnings</h2><ul>${c.issues.map((i) => `<li>${esc(i.text)}</li>`).join("")}</ul>` : ""}</article>`;
+  return business.print();
 }
 function showPrintableSummary() {
   const dialog = document.createElement("dialog");
   dialog.className = "export-dialog print-preview-dialog";
   dialog.setAttribute("aria-label", "Printable recipe summary");
   dialog.innerHTML = `<div class="actions print-preview-actions"><button class="primary" data-print>Print / Save PDF</button><button data-close>Close summary</button></div>${printSummary().replace('class="print-only"', 'class="print-preview-content"')}`;
-  dialog.querySelector("[data-print]").addEventListener("click", () => window.print());
-  dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("close", () => dialog.remove(), {once:true});
+  dialog
+    .querySelector("[data-print]")
+    .addEventListener("click", () => window.print());
+  dialog
+    .querySelector("[data-close]")
+    .addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
   document.body.append(dialog);
   dialog.showModal();
 }
@@ -707,7 +318,9 @@ function refreshAroundInput(current, next, input, nextInput) {
     return;
   }
   const kept = [...current.childNodes].find((node) => node.contains(input));
-  const nextKept = [...next.childNodes].find((node) => node.contains(nextInput));
+  const nextKept = [...next.childNodes].find((node) =>
+    node.contains(nextInput),
+  );
   for (const child of [...current.childNodes]) {
     if (child !== kept) child.remove();
   }
@@ -728,8 +341,22 @@ function render(preserveFocus = false, editingInput = null) {
       (el) => el.dataset.detail,
     );
   result = calculate(active());
+  businessResult = calculateBusiness(active());
   const r = active();
-  const html = `<div class="page-heading"><div><p class="eyebrow">FROM RECIPE TO RETAIL</p><h1>A better batch starts here.</h1><p class="subtext">Know your recipe. Understand your costs.</p></div><div class="actions"><button data-action="csv">Export CSV</button><button data-action="print">Print summary</button></div></div><div class="recipe-bar"><div class="recipe-select"><label for="recipe-picker">Your recipes</label><select id="recipe-picker">${state.recipes.map((i) => `<option value="${esc(i.id)}" ${i.id === r.id ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</select><span class="save-state">${storageAvailable ? "Autosaved in this browser" : "Session only · export a backup"}</span></div><div class="actions"><button class="quiet small" data-action="new">+ Blank recipe</button><button class="quiet small" data-action="duplicate">Duplicate</button><button class="primary small" data-action="save">Save recipe</button></div></div>${storageError ? `<div class="warnings">${esc(storageError)}</div>` : ""}<nav class="tabs" aria-label="Calculator sections">${tabs.map(([key, label], n) => `<button class="tab ${tab === key ? "active" : ""}" data-tab="${key}" ${tab === key ? 'aria-current="page"' : ""}><span>${n + 1}</span>${label}</button>`).join("")}</nav><a class="mobile-summary-link" href="#summary">View live results ↓</a><div class="workspace" id="workspace"><div id="inputs">${{ recipe: recipePanel, ingredients: pricesPanel, production: productionPanel, pricing: pricingPanel, monthly: monthlyPanel }[tab]()}</div>${summary()}</div><footer class="footer"><span>Hummus Workshop · Local-first, no account needed.</span><div class="actions"><button class="quiet small" data-action="export">Export JSON backup</button><button class="quiet small" data-action="import">Import JSON</button><input type="file" id="import-file" accept=".json,application/json" hidden><button class="quiet small" data-action="example">Add example</button></div></footer>${printSummary()}`;
+  business = businessUI(r, businessResult, state, {
+    field,
+    select,
+    check,
+    grid,
+    panel,
+    note,
+    metrics,
+    table,
+    money,
+    fmt,
+    esc,
+  });
+  const html = `<div class="page-heading"><div><p class="eyebrow">FROM RECIPE TO RETAIL</p><h1>A better batch starts here.</h1><p class="subtext">Plan your recipe, team, startup and sustainable sales.</p></div><div class="actions"><button data-action="csv">Export CSV</button><button data-action="print">Print summary</button></div></div><div class="recipe-bar"><div class="recipe-select"><label for="recipe-picker">Your scenarios</label><select id="recipe-picker">${state.recipes.map((i) => `<option value="${esc(i.id)}" ${i.id === r.id ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</select><span class="save-state">${storageAvailable ? "Autosaved in this browser" : "Session only · export a backup"}</span></div><div class="actions"><button class="quiet small" data-action="new">+ New scenario</button><button class="quiet small" data-action="duplicate">Duplicate</button><button class="primary small" data-action="save">Save scenario</button></div></div>${storageError ? `<div class="warnings">${esc(storageError)}</div>` : ""}<nav class="tabs" aria-label="Calculator sections">${tabs.map(([key, label], n) => `<button class="tab ${tab === key ? "active" : ""}" data-tab="${key}" ${tab === key ? 'aria-current="page"' : ""}><span>${n + 1}</span>${label}</button>`).join("")}</nav><a class="mobile-summary-link" href="#summary">View live results ↓</a><div class="workspace" id="workspace"><div id="inputs">${tab === "recipe" ? business.recipeIntro() + recipePanel() + business.ingredientOptions() + pricesPanel() : business[tab]()}</div>${business.sidebar()}</div><footer class="footer"><span>Hummus Workshop · Local-first, no account needed.</span><div class="actions"><button class="quiet small" data-action="export">Export JSON backup</button><button class="quiet small" data-action="import">Import JSON</button><input type="file" id="import-file" accept=".json,application/json" hidden><button class="quiet small" data-action="example">Add example</button></div></footer>${printSummary()}`;
   if (editingInput === focused && focusPath) {
     const nextView = document.createElement("div");
     nextView.innerHTML = html;
@@ -768,11 +395,17 @@ function download(content, type, name) {
   a.href = url;
   a.download = name;
   dialog.querySelector("textarea").value = content;
-  dialog.querySelector("button").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("close", () => {
-    URL.revokeObjectURL(url);
-    dialog.remove();
-  }, {once:true});
+  dialog
+    .querySelector("button")
+    .addEventListener("click", () => dialog.close());
+  dialog.addEventListener(
+    "close",
+    () => {
+      URL.revokeObjectURL(url);
+      dialog.remove();
+    },
+    { once: true },
+  );
   document.body.append(dialog);
   dialog.showModal();
   a.click();
@@ -816,8 +449,8 @@ app.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      if (file.size > 2_000_000)
-        throw new Error("Maximum backup size is 2 MB.");
+      if (file.size > 20_000_000)
+        throw new Error("Maximum backup size is 20 MB.");
       const imported = validateBackup(JSON.parse(await file.text()));
       if (state.recipes.length + imported.recipes.length > 100)
         throw new Error("This import would exceed 100 recipes.");
@@ -849,6 +482,73 @@ app.addEventListener("click", (e) => {
       ?.focus({ preventScroll: true });
     return;
   }
+
+  if (button.dataset.row) {
+    const path = button.dataset.collection;
+    if (
+      !/^(ingredients|business\.(packages(?:\.\d+\.items)?|sales\.fees|founders|staff|workload|expenses|assets|capacity))$/.test(
+        path,
+      )
+    )
+      return;
+    const list = get(path),
+      index = Number(button.dataset.index),
+      operation = button.dataset.row;
+    if (!Array.isArray(list)) return;
+    if (operation === "delete") {
+      if (path === "business.packages" && list.length === 1) {
+        toast("Keep at least one package.");
+        return;
+      }
+      list.splice(index, 1);
+      if (
+        path === "business.packages" &&
+        !list.some((p) => p.id === active().business.volume.packageId)
+      )
+        active().business.volume.packageId = list[0].id;
+    } else {
+      if (list.length >= 100) {
+        toast("Maximum 100 rows.");
+        return;
+      }
+      const row =
+        operation === "duplicate"
+          ? structuredClone(list[index])
+          : createRow(button.dataset.kind);
+      row.id = uid();
+      if (operation === "duplicate") row.name += " (copy)";
+      list.push(row);
+    }
+    persist();
+    render();
+    return;
+  }
+  if (button.dataset.preset || button.dataset.action === "reset-scenario") {
+    if (state.recipes.length >= 100) {
+      toast("Maximum 100 scenarios. Export before starting another workspace.");
+      return;
+    }
+    if (button.dataset.action === "reset-scenario") {
+      const previous = duplicateRecipe(active());
+      previous.name = active().name + " (before reset)";
+      state.recipes.push(previous);
+      const fresh = createPreset(active().business.preset);
+      active().business = fresh.business;
+      active().pricing = fresh.pricing;
+      toast(
+        "Business assumptions reset. A copy of the previous scenario was saved; recipe quantities were retained.",
+      );
+    } else {
+      const fresh = createPreset(button.dataset.preset);
+      state.recipes.push(fresh);
+      state.activeId = fresh.id;
+      toast("Preset added as a separate scenario.");
+    }
+    persist();
+    render();
+    return;
+  }
+
   const action = button.dataset.action;
   if (["new", "example", "duplicate"].includes(action)) {
     if (state.recipes.length >= 100) {
@@ -925,11 +625,11 @@ app.addEventListener("click", (e) => {
   }
   if (action === "csv") {
     download(
-      makeCsv(active(), result),
+      makeCsv(active(), businessResult),
       "text/csv;charset=utf-8",
       "hummus-batch-costs.csv",
     );
-    toast("Ingredient and cost results exported.");
+    toast("Scenario inputs and business results exported.");
   }
   if (action === "import") document.querySelector("#import-file").click();
   if (action === "print") showPrintableSummary();
